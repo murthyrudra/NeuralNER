@@ -27,4 +27,7 @@ The pretrained model can also be used to obtain named entities on unlabeled corp
 python NeuralNER.py --embedding_dict="path to word embedding file" --test="path to plain corpus" --hidden_size="bi-lstm hidden layer size" --num_filters="number of character features extracted per filter" --min_filter_width "minimum number of character ngrams to look at" --max_filter_width "maximum number of character ngrams to look at" --use_gpu=1 --ner_tag_field="ner tag column number" --save-dir="directory in which model is saved" --vocabChar="directory in which model is saved"/char.vocab --vocabTag="directory in which model is saved"/tag.vocab --perform_evaluation=True --deploy True
 ```
 
+## Data
+Due to licensing issue we are unable to share the data for English and Indian languages (except Marathi). For Marathi, please fill the form here http://www.cfilt.iitb.ac.in/ner/annotated_corpus/
 
+However, Spanish and Dutch data are freely available here https://www.clips.uantwerpen.be/conll2002/ner/. Also, we make a copy of these two languages data available in the Data folder.
