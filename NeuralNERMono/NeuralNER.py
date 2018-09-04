@@ -151,10 +151,10 @@ def main():
 			print(tagVocabulary)
 
 		if not args.vocabChar:
-			tmp_filename = '%s/vocab' % (save_dir)
+			tmp_filename = '%s/char.vocab' % (save_dir)
 			saveVocabulary(tmp_filename, charVocabulary, charReverseVocabulary)
 
-			tmp_filename = '%s/tag' % (save_dir)
+			tmp_filename = '%s/tag.vocab' % (save_dir)
 			saveVocabulary(tmp_filename, tagVocabulary, tagReverseVocabulary)
 
 	print("Number of epochs = " +  str(num_epochs))
