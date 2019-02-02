@@ -43,6 +43,8 @@ However, Spanish and Dutch data are freely available here https://www.clips.uant
 | Italian   | EVALITA 2009                                              | Spectral Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    75.98 |
 | Hindi     | FIRE 2014                                                 | Fasttext Embeddings https://fasttext.cc/docs/en/pretrained-vectors.html | https://aclanthology.info/papers/P18-2064/p18-2064 |    64.93 |
 | Marathi   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    61.46 |
-| Bengali   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    40.02 |
-| Malayalam | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    57.94 |
-| Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    53.13 |
+| Bengali   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    55.61 |
+| Malayalam | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    64.59 |
+| Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    65.39 |
+
+## PPS: The reason for difference in monolingual NER performance for Bengali, Tamil and Malayalam are due to certain pre-processing steps which were not performed in the ACL 2018 paper. We have observed that some of the sentences have length greater than 200 words. Manually splitting these longer sentences into smaller ones using '.' as delimiter lead to substantial imrpovement
