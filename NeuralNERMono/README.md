@@ -36,13 +36,13 @@ However, Spanish and Dutch data are freely available here https://www.clips.uant
 ## Results
 |  Language |                        Dataset Link                       |                             Word Embeddings                             |                      Reference                     | F1-Score |
 |:---------:|:---------------------------------------------------------:|:-----------------------------------------------------------------------:|:--------------------------------------------------:|:--------:|
-| English   | CoNLL 2003 https://www.clips.uantwerpen.be/conll2003/ner/ | Spectral Embeddings  http://www.pdhillon.com/code.html                  | https://arxiv.org/abs/1607.00198                   | 90.94    |
-| Spanish   | CoNLL 2002 https://www.clips.uantwerpen.be/conll2002/ner/ | Spectral Embeddings                                                     | https://arxiv.org/abs/1607.00198                   | 85.75    |
-| Dutch     | CoNLL 2002 https://www.clips.uantwerpen.be/conll2002/ner/ | Spectral Embeddings                                                     | https://arxiv.org/abs/1607.00198                   | 85.20    |
-| German    | https://nlpado.de/~sebastian/software/ner_german.shtml    | Spectral Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 87.64    |
-| Italian   | EVALITA 2009                                              | Spectral Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 75.98    |
-| Hindi     | FIRE 2014                                                 | Fasttext Embeddings https://fasttext.cc/docs/en/pretrained-vectors.html | https://aclanthology.info/papers/P18-2064/p18-2064 | 64.93    |
-| Marathi   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 61.46    |
-| Bengali   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 40.02    |
-| Malayalam | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 57.94    |
-| Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 | 53.13    |
+| English   | CoNLL 2003 https://www.clips.uantwerpen.be/conll2003/ner/ | Spectral Embeddings  http://www.pdhillon.com/code.html                  | https://arxiv.org/abs/1607.00198                   |    90.94 |
+| Spanish   | CoNLL 2002 https://www.clips.uantwerpen.be/conll2002/ner/ | Spectral Embeddings                                                     | https://arxiv.org/abs/1607.00198                   |    85.75 |
+| Dutch     | CoNLL 2002 https://www.clips.uantwerpen.be/conll2002/ner/ | Spectral Embeddings                                                     | https://arxiv.org/abs/1607.00198                   |    85.20 |
+| German    | https://nlpado.de/~sebastian/software/ner_german.shtml    | Spectral Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    87.64 |
+| Italian   | EVALITA 2009                                              | Spectral Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    75.98 |
+| Hindi     | FIRE 2014                                                 | Fasttext Embeddings https://fasttext.cc/docs/en/pretrained-vectors.html | https://aclanthology.info/papers/P18-2064/p18-2064 |    64.93 |
+| Marathi   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    61.46 |
+| Bengali   | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    40.02 |
+| Malayalam | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    57.94 |
+| Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    53.13 |
