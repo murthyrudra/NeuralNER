@@ -15,15 +15,17 @@ sys.path.append("..")
 import time
 import argparse
 import fnmatch
-
+from utils.vocab import Vocab, CharVocab
+import json
+from tqdm import tqdm
 import numpy as np
+import math
 import torch
 from torch.optim import Adam, SGD
-from models.modules import BiCNNLSTMTranstion, BiCNNAverageTranstion
+from models.modules import BiCNNLSTMTranstion
 from utils.utilsLocal import *
-from utils.CoNLLData import CoNLL
-from torch.utils.data import DataLoader
 from torch.nn.parameter import Parameter
+
 
 def evaluate(output_file, save_dir):
 	score_file = "%s/score_" % (save_dir)
@@ -47,16 +49,19 @@ def main():
 	parser.add_argument('--num_filters', type=int, default=35, help='Number of filters in CNN')
 	parser.add_argument('--min_filter_width', type=int, default=3, help='Number of filters in CNN')
 	parser.add_argument('--max_filter_width', type=int, default=7, help='Number of filters in CNN')
+	parser.add_argument('--embedDimension', type=int, default=300, help='embedding dimension')
 
 	parser.add_argument('--learning_rate', type=float, default=0.4, help='Learning rate')
 	parser.add_argument('--gamma', type=float, default=0.0, help='weight for regularization')
-	parser.add_argument('--embedding_dict', help='path for embedding dict')
+	parser.add_argument('--embedding_vectors', help='path for embedding dict')
 	parser.add_argument('--embedding_dict_new', help='path for embedding dict')
 	parser.add_argument('--train')
 	parser.add_argument('--dev')
 	parser.add_argument('--test')
+
 	parser.add_argument('--vocabChar')
-	parser.add_argument('--vocabTag')
+	parser.add_argument('--vocabOutput')
+	parser.add_argument('--vocabInput')
 
 	parser.add_argument('--ner_tag_field', type=int, default=1, help='ner tag field')
 	parser.add_argument('--use_gpu', type=int, default=1, help='use gpu')
@@ -87,7 +92,7 @@ def main():
 	momentum = 0.01 * learning_rate
 	gamma = args.gamma
 
-	embedding_path = args.embedding_dict
+	embedding_path = args.embedding_vectors
 
 	save_dir = args.save_dir
 
@@ -96,27 +101,50 @@ def main():
 
 	evaluation = args.perform_evaluation
 
-	embedd_dict, embedding_vocab, reverse_word_vocab, vocabularySize, embeddingDimension = load_embeddings(embedding_path)
-
-	print("Read Word Embedding of dimension " + str(embeddingDimension) + " for " + str(vocabularySize) + " number of words")
-
-	charVocabulary = dict()
-	charReverseVocabulary = []
-
-	tagVocabulary = dict()
-	tagReverseVocabulary = []
+	inputVocabulary = Vocab()
+	charVocabulary = CharVocab()
+	targetVocabulary = Vocab()
 
 	if args.vocabChar:
-		loadVocabulary(args.vocabChar, charVocabulary, charReverseVocabulary)
-		print("Read " + str(len(charVocabulary)) + " number of characters")
+		with open(args.vocabChar, "r") as f:
+			charVocabulary.__dict__ = json.load(f)
+		charVocabulary.set_freeze()
+		charVocabulary.process()
 
-	if args.vocabTag:
-		loadVocabulary(args.vocabTag, tagVocabulary, tagReverseVocabulary)
-		print(tagVocabulary)
+	if args.vocabOutput:
+		with open(args.vocabOutput, "r") as f:
+			targetVocabulary.__dict__ = json.load(f)
+		targetVocabulary.set_freeze()
+		targetVocabulary.process()
+
+	embedding_vocab = None
+
+	if args.embedding_vectors:
+		print(args.embedding_vectors)
+		embedd_dict, embedding_vocab, reverse_word_vocab, vocabularySize, embeddingDimension = load_embeddings(embedding_path)
+		print("Read Word Embedding of dimension " + str(embeddingDimension) + " for " + str(vocabularySize) + " number of words")
+
+		for everyWord in embedding_vocab:
+			inputVocabulary.add(everyWord)
+		inputVocabulary.set_freeze()
+		inputVocabulary.process()
+	else:
+		if args.vocabInput:
+			with open(args.vocabInput, "r") as f:
+				inputVocabulary.__dict__ = json.load(f)
+			inputVocabulary.set_freeze()
+			inputVocabulary.process()
+		else:
+			print("Neither pre-trained word embeddings nor input vocabulary is specified")
+			exit()
+
+	if charVocabulary.__is_empty__():
+		charVocabulary.add("<S>")
+		charVocabulary.add("</S>")
 
 	if evaluation:
 		if not args.deploy:
-			testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, tagVocabulary, charReverseVocabulary, tagReverseVocabulary, args.ner_tag_field, embedding_vocab, args.vocabTag, args.vocabChar)
+			testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, targetVocabulary, args.ner_tag_field, inputVocabulary)
 			print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 			print("Read " + str(len(charVocabulary)) + " number of characters")
 
@@ -124,38 +152,53 @@ def main():
 			testCorpus, maxTestLength = readUnlabeledData(test_path)
 			print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 	else:
-		if not args.vocabChar:
-			charVocabulary["<S>"] = len(charVocabulary)
-			charReverseVocabulary.append("<S>")
-
-			charVocabulary["</S>"] = len(charVocabulary)
-			charReverseVocabulary.append("</S>")
-
-		trainCorpus, trainLabelsRaw, maxTrainLength = readCoNLL(train_path, charVocabulary, tagVocabulary, charReverseVocabulary, tagReverseVocabulary, args.ner_tag_field, embedding_vocab, args.vocabTag, args.vocabChar)
+		trainCorpus, trainLabelsRaw, maxTrainLength = readCoNLL(train_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Train Corpus contains " + str(len(trainCorpus)) + " sentences and maximum sentence length is " + str(maxTrainLength))
 
-		# trainCorpusRawSorted, trainLabelsRawSorted = sortTrainData(trainCorpus, trainLabelsRaw)
 		trainCorpusRawSorted = trainCorpus
 		trainLabelsRawSorted = trainLabelsRaw
 		print("Sorted the train Corpus based on length ")
 
-		devCorpus, devLabelsRaw, maxDevLength = readCoNLL(dev_path, charVocabulary, tagVocabulary, charReverseVocabulary, tagReverseVocabulary, args.ner_tag_field, embedding_vocab, args.vocabTag, args.vocabChar)
+		devCorpus, devLabelsRaw, maxDevLength = readCoNLL(dev_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Dev Corpus contains " + str(len(devCorpus)) + " sentences and maximum sentence length is " + str(maxDevLength))
 
-		testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, tagVocabulary, charReverseVocabulary, tagReverseVocabulary, args.ner_tag_field, embedding_vocab, args.vocabTag, args.vocabChar)
+		testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 
-		if not args.vocabChar:
-			print("Read " + str(len(charVocabulary)) + " number of characters")
+	if not targetVocabulary.get_freeze():
+		print(targetVocabulary._tok_to_ind)
 
-			print(tagVocabulary)
+		tmp_filename = '%s/output.vocab' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			json.dump(targetVocabulary.__dict__, f)
+		targetVocabulary.set_freeze()
 
-		if not args.vocabChar:
-			tmp_filename = '%s/char.vocab' % (save_dir)
-			saveVocabulary(tmp_filename, charVocabulary, charReverseVocabulary)
+	if not charVocabulary.get_freeze():
+		tmp_filename = '%s/char.vocab' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			json.dump(charVocabulary.__dict__, f)
+		charVocabulary.set_freeze()
 
-			tmp_filename = '%s/tag.vocab' % (save_dir)
-			saveVocabulary(tmp_filename, tagVocabulary, tagReverseVocabulary)
+	embeddingDimension = args.embedDimension
+	word_embedding = np.random.uniform(-0.1, 0.1, (inputVocabulary.__len__(), embeddingDimension) )
+	if args.embedding_vectors:
+		for everyWord in inputVocabulary._tok_to_ind:
+			if everyWord in embedding_vocab:
+				word_embedding[ inputVocabulary.__get_word__(everyWord) ] = embedd_dict[embedding_vocab[everyWord]]
+
+		tmp_filename = '%s/input.vocab' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			json.dump(inputVocabulary.__dict__, f)
+		inputVocabulary.set_freeze()
+
+		del embedd_dict
+		del reverse_word_vocab
+		del vocabularySize
+		del embedding_vocab
+
+	print("Read " + str(targetVocabulary.__len__()) + " number of target words")
+	print("Read " + str(inputVocabulary.__len__()) + " number of input words")
+	print("Read " + str(charVocabulary.__len__()) + " number of characters")
 
 	print("Number of epochs = " +  str(num_epochs))
 	print("Mini-Batch size = " +  str(batch_size))
@@ -167,9 +210,9 @@ def main():
 
 	use_gpu = args.use_gpu
 
-	network = BiCNNLSTMTranstion(vocabularySize, embeddingDimension, min_filter_width, max_filter_width, len(charVocabulary), num_filters, hidden_size, len(tagVocabulary) , embedd_dict, args.fineTune)
+	network = BiCNNLSTMTranstion(inputVocabulary.__len__(), embeddingDimension, min_filter_width, max_filter_width, charVocabulary.__len__(), num_filters, hidden_size, targetVocabulary.__len__() , word_embedding, args.fineTune)
 
-	print(network)
+	# print(network)
 
 	lr = learning_rate
 
@@ -191,81 +234,60 @@ def main():
 	if evaluation:
 		network.load_state_dict(torch.load(save_dir + "/model"))
 
+		tmp_filename = '%s/output.vocab.plain' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			for index in range(len(targetVocabulary._ind_to_tok)):
+				f.write(targetVocabulary._ind_to_tok[index])
+				f.write("\n")
+			f.close()
+
+		tmp_filename = '%s/input.vocab.plain' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			for index in range(len(inputVocabulary._ind_to_tok)):
+				f.write(inputVocabulary._ind_to_tok[index])
+				f.write("\n")
+			f.close()
+
+		tmp_filename = '%s/char.vocab.plain' % (save_dir)
+		with open(tmp_filename, "w") as f:
+			for index in range(len(charVocabulary._ind_to_tok)):
+				f.write(charVocabulary._ind_to_tok[index])
+				f.write("\n")
+			f.close()
+
 		print("Performing Evaluation")
 		if args.use_gpu == 0:
 			network.cpu()
 
-# This part of the code is buggy and needs debugging
-		if args.embedding_dict_new:
-			network.cpu()
-			print("Loading new embeddings")
-
-			load_embeddings_new(args.embedding_dict_new, embedding_vocab, reverse_word_vocab, embedd_dict)
-			print("Read Word Embedding for " + str(len(embedding_vocab)) + " number of words")
-
-			vocabularySize_new = len(embedding_vocab)
-
-			print(network)
-			if args.use_gpu == 1:
-				network.cuda()
-
-			if not args.deploy:
-				testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, tagVocabulary, charReverseVocabulary, tagReverseVocabulary, args.ner_tag_field, embedding_vocab, args.vocabTag, args.vocabChar)
-				print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
-				print("Read " + str(len(charVocabulary)) + " number of characters")
-
-			else:
-				testCorpus, maxTestLength = readUnlabeledData(test_path)
-				print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
-
 		network.eval()
-		if not args.deploy:
-			tmp_filename = '%s/_test_new' % (save_dir)
-		else:
-			tmp_filename = test_path + ".pos"
+		tmp_filename = '%s/_test_new' % (save_dir)
 
 		if args.use_gpu == 1:
 			print("Using GPU....")
 			network.cuda()
 
-		if args.deploy:
+		with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
+			for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
+				x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
-			testCorpus, maxTestLength = readUnlabeledData(tmp_filename)
-			print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
+				loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
-			with codecs.open(tmp_filename + ".new", "w", encoding="utf8", errors="ignore") as writer:
-				for inputs in testCorpus:
-					x_input, batch_length, current_batch_size, current_max_sequence_length, mask = constructBatchOnline([inputs], embedding_vocab, vocabularySize, charVocabulary, max_filter_width, args.use_gpu)
+				count = 0
 
-					preds = network.forwardOnline(x_input, batch_length, current_batch_size, current_max_sequence_length, mask, args.use_gpu)
+				for i in range(len(inputs)):
+					for j in range(len(inputs[i])):
+						writer.write(inputs[i][j] )
 
-					count = 0
-
-					for i in range(len(inputs)):
-						writer.write(inputs[i] + " " + tagReverseVocabulary[preds[0][i]])
-						writer.write("\t")
+						for k in range(probs[i][j].size()[0]):
+							writer.write(" " + str(probs[i][j][k].item()))
+						writer.write(" " + inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
+						writer.write("\n")
 					writer.write("\n")
 
-				writer.close()
-		else:
-			with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
-				for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
-					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+			writer.close()
 
-					loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
-
-					count = 0
-
-					for i in range(len(inputs)):
-						for j in range(len(inputs[i])):
-							writer.write(inputs[i][j] + " " + labels[i][j] + " " + tagReverseVocabulary[preds[i][j]])
-							writer.write("\n")
-						writer.write("\n")
-
-				writer.close()
-
-			acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
-			print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
+		acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
+		print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
 	else:
 		if args.use_gpu == 1:
 			print("Using GPU....")
@@ -278,6 +300,33 @@ def main():
 
 		print("Training....")
 		prev_error = 1000.0
+
+		network.eval()
+		tmp_filename = '%s/_dev' % (save_dir)
+		current_epoch_loss = 0.0
+
+		with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
+			for inputs, labels in batch(devCorpus, devLabelsRaw, 1):
+				x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+
+				loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+
+				current_epoch_loss = current_epoch_loss + loss.item()
+
+				loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+
+				count = 0
+
+				for i in range(len(inputs)):
+					for j in range(len(inputs[i])):
+						writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
+						writer.write("\n")
+					writer.write("\n")
+
+			writer.close()
+
+		acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
+		print('dev loss: %.2f, dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (current_epoch_loss, acc, precision, recall, f1))
 
 		for epoch in range(1, num_epochs + 1):
 			print('Epoch %d ( learning rate=%.4f ): ' % (epoch, lr))
@@ -293,25 +342,27 @@ def main():
 			count = 0
 			count_batch = 0
 
-			for inputs, labels in batch(trainCorpusRawSorted, trainLabelsRawSorted, batch_size):
+			with tqdm(total= ( len(trainCorpusRawSorted)) ) as pbar:
+				for inputs, labels in batch(trainCorpusRawSorted, trainLabelsRawSorted, batch_size):
 
-				x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
-				optim.zero_grad()
-				
-				loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+					optim.zero_grad()
 
-				loss.backward()
-				optim.step()
+					loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
-				train_err += loss.item()
-				train_total += batch_length.data.sum()
+					loss.backward()
+					optim.step()
 
-				count = count + current_batch_size
-				count_batch = count_batch + 1
+					train_err += loss.item()
+					train_total += batch_length.data.sum()
 
-				time_ave = (time.time() - start_time) / count
-				time_left = (num_batches - count_batch) * time_ave
+					count = count + current_batch_size
+					count_batch = count_batch + 1
+
+					time_ave = (time.time() - start_time) / count
+					time_left = (num_batches - count_batch) * time_ave
+					pbar.update(1)
 
 			print('train: %d loss: %.4f, time: %.2fs' % (num_batches, train_err / count, time.time() - start_time))
 
@@ -321,20 +372,20 @@ def main():
 
 			with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 				for inputs, labels in batch(devCorpus, devLabelsRaw, 1):
-					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
 					loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 					current_epoch_loss = current_epoch_loss + loss.item()
 
-					loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+					loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 					count = 0
 
 					for i in range(len(inputs)):
 						for j in range(len(inputs[i])):
-							writer.write(inputs[i][j] + " " + labels[i][j] + " " + tagReverseVocabulary[preds[i][j]])
+							writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
 							writer.write("\n")
-							writer.write("\n")
+						writer.write("\n")
 
 				writer.close()
 
@@ -355,15 +406,19 @@ def main():
 
 						with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 							for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
-								x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+								x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
-								loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+								loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 								count = 0
 
 								for i in range(len(inputs)):
 									for j in range(len(inputs[i])):
-										writer.write(inputs[i][j] + " " + labels[i][j] + " " + tagReverseVocabulary[preds[i][j]])
+										writer.write(inputs[i][j] )
+
+										for k in range(probs[i][j].size()[0]):
+											writer.write(" " + str(probs[i][j][k].item()))
+										writer.write(" " + inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
 										writer.write("\n")
 									writer.write("\n")
 
@@ -382,15 +437,15 @@ def main():
 
 					with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 						for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
-							x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, args.use_gpu)
+							x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
-							loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
+							loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 							count = 0
 
 							for i in range(len(inputs)):
 								for j in range(len(inputs[i])):
-									writer.write(inputs[i][j] + " " + labels[i][j] + " " + tagReverseVocabulary[preds[i][j]])
+									writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
 									writer.write("\n")
 								writer.write("\n")
 
