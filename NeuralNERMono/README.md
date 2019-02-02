@@ -20,8 +20,8 @@ Training and development data are not required for evaluating the pre-trained mo
 python NeuralNER.py --embedding_dict="path to word embedding file" --test="path to test file in CoNLL format" --hidden_size="bi-lstm hidden layer size" --num_filters="number of character features extracted per filter" --min_filter_width "minimum number of character ngrams to look at" --max_filter_width "maximum number of character ngrams to look at" --use_gpu=1 --ner_tag_field="ner tag column number" --save-dir="directory in which model is saved" --vocabChar="directory in which model is saved"/char.vocab --vocabTag="directory in which model is saved"/tag.vocab --perform_evaluation=True
 ```
 
-###### For Deploying
-**The pretrained model can also be used to obtain named entities on unlabeled corpus. The unlabeled corpus contains every sentence in it's own line. Please run the following command to obtaining named entities on any unlabeled corpus**
+## For Deploying
+The pretrained model can also be used to obtain named entities on unlabeled corpus. The unlabeled corpus contains every sentence in it's own line. Please run the following command to obtaining named entities on any unlabeled corpus
 
 ```sh
 python NeuralNER.py --embedding_dict="path to word embedding file" --test="path to plain corpus" --hidden_size="bi-lstm hidden layer size" --num_filters="number of character features extracted per filter" --min_filter_width "minimum number of character ngrams to look at" --max_filter_width "maximum number of character ngrams to look at" --use_gpu=1 --ner_tag_field="ner tag column number" --save-dir="directory in which model is saved" --vocabChar="directory in which model is saved"/char.vocab --vocabTag="directory in which model is saved"/tag.vocab --perform_evaluation=True --deploy True
@@ -47,4 +47,5 @@ However, Spanish and Dutch data are freely available here https://www.clips.uant
 | Malayalam | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    64.59 |
 | Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    65.39 |
 
-## PPS: The reason for difference in monolingual NER performance for Bengali, Tamil and Malayalam are due to certain pre-processing steps which were not performed in the ACL 2018 paper. We have observed that some of the sentences have length greater than 200 words. Manually splitting these longer sentences into smaller ones using '.' as delimiter lead to substantial imrpovement
+
+**PPS: The reason for difference in monolingual NER performance for Bengali, Tamil and Malayalam are due to certain pre-processing steps which were not performed in the ACL 2018 paper. We have observed that some of the sentences have length greater than 200 words. Manually splitting these longer sentences into smaller ones using '.' as delimiter lead to substantial imrpovement**
