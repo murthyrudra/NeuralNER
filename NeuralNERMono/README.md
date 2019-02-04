@@ -48,4 +48,4 @@ However, Spanish and Dutch data are freely available here https://www.clips.uant
 | Tamil     | FIRE 2014                                                 | Fasttext Embeddings                                                     | https://aclanthology.info/papers/P18-2064/p18-2064 |    65.39 |
 
 
-**PPS: The reason for difference in monolingual NER performance for Bengali, Tamil and Malayalam are due to certain pre-processing steps which were not performed in the ACL 2018 paper. We have observed that some of the sentences have length greater than 200 words. Manually splitting these longer sentences into smaller ones using '.' as delimiter lead to substantial imrpovement**
+**PPS: The reason for difference in monolingual NER performance for Bengali, Tamil and Malayalam are due to certain pre-processing steps which were not performed in the ACL 2018 paper. We have observed that some of the sentences have length greater than 200 words. Manually splitting these longer sentences into smaller ones using '|' as delimiter lead to substantial improvement**
