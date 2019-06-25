@@ -208,7 +208,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
             return self.nll_loss(prob_output, t_out.data).sum() / count * 0.05, predIndex.data
 
-    def forward(self, x, length_of_sequence, batchSize, maxLength, target, mask, y_prev, languageId):
+    def forward(self, x, length_of_sequence, batchSize, maxLength, target, mask, y_prev, languageId, use_gpu):
 # batchSize is always 1, it's an hack but still we'll go with it
         embedOut = []
         embedOut = self.embedLayer(x[0])
