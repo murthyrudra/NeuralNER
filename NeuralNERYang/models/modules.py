@@ -86,7 +86,7 @@ class BiCNNLSTMTranstion(nn.Module):
         self.logsoftmaxAux = nn.LogSoftmax(dim=1)
         self.nll_loss = nn.NLLLoss(size_average=True, reduce=False)
 
-    def loss(self, x, length_of_sequence, batchSize, maxLength, target, mask, y_prev, languageId):
+    def loss(self, x, length_of_sequence, batchSize, maxLength, target, mask, y_prev, languageId, use_gpu):
 
         if languageId == 0:
             embedOut = self.embedLayer(x[0])
@@ -112,8 +112,12 @@ class BiCNNLSTMTranstion(nn.Module):
 
             _, rev_order = torch.sort(sorted_index)
     # convert the given input into sorted order based on sorted indices
-            rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
-            correctLabels = target.index_select(0, sorted_index.cuda())
+            if use_gpu == 1:
+                rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
+                correctLabels = target.index_select(0, sorted_index.cuda())
+            else:
+                rnn_input = finalWordOut.index_select(0, sorted_index)
+                correctLabels = target.index_select(0, sorted_index)
 
     # pack the sequence with pads so that Bi-LSTM returns zero for the remaining entries
             x = torch.nn.utils.rnn.pack_padded_sequence(rnn_input, sorted_length.data.tolist(), batch_first=True)
@@ -139,7 +143,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
             count = 0
             for i in range(batchSize):
-                for j in range(length_of_sequence[i].data[0]):
+                for j in range(length_of_sequence[i].item()):
                     count = count + 1
 
             return self.nll_loss(prob_output, t_out.data).sum() / count, predIndex.data
@@ -167,8 +171,13 @@ class BiCNNLSTMTranstion(nn.Module):
 
             _, rev_order = torch.sort(sorted_index)
     # convert the given input into sorted order based on sorted indices
-            rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
-            correctLabels = target.index_select(0, sorted_index.cuda())
+
+            if use_gpu == 1:
+                rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
+                correctLabels = target.index_select(0, sorted_index.cuda())
+            else:
+                rnn_input = finalWordOut.index_select(0, sorted_index)
+                correctLabels = target.index_select(0, sorted_index)
 
     # pack the sequence with pads so that Bi-LSTM returns zero for the remaining entries
             x = torch.nn.utils.rnn.pack_padded_sequence(rnn_input, sorted_length.data.tolist(), batch_first=True)
@@ -194,7 +203,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
             count = 0
             for i in range(batchSize):
-                for j in range(length_of_sequence[i].data[0]):
+                for j in range(length_of_sequence[i].item()):
                     count = count + 1
 
             return self.nll_loss(prob_output, t_out.data).sum() / count * 0.05, predIndex.data
@@ -226,8 +235,12 @@ class BiCNNLSTMTranstion(nn.Module):
 
         _, rev_order = torch.sort(sorted_index)
 # convert the given input into sorted order based on sorted indices
-        rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
-        correctLabels = target.index_select(0, sorted_index.cuda())
+        if use_gpu == 1:
+            rnn_input = finalWordOut.index_select(0, sorted_index.cuda())
+            correctLabels = target.index_select(0, sorted_index.cuda())
+        else:
+            rnn_input = finalWordOut.index_select(0, sorted_index)
+            correctLabels = target.index_select(0, sorted_index)
 
 # pack the sequence with pads so that Bi-LSTM returns zero for the remaining entries
         x = torch.nn.utils.rnn.pack_padded_sequence(rnn_input, sorted_length.data.tolist(), batch_first=True)
@@ -239,7 +252,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
         count = 0
         for i in range(batchSize):
-            for j in range(length_of_sequence[i].data[0]):
+            for j in range(length_of_sequence[i].item()):
                 count = count + 1
 
         # loss = self.nll_loss(prob_output, t_out.data).sum() / count
@@ -248,7 +261,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
         return loss, predIndex
 
-    def _decode(self, seq_output, correctTarget, batchSize, maxLength, mask):
+    def _decode(self, seq_output, correctTarget, batchSize, maxLength, mask, use_gpu):
         predictionList = torch.LongTensor(batchSize, maxLength).fill_(0)
 
         loss = 0.0
@@ -262,7 +275,10 @@ class BiCNNLSTMTranstion(nn.Module):
                     init_predictions[j][ predictionList[j][time_step-1] ] = 1.0
 
             # input to output layer is both bi-lstm features and correct previous tag
-            inputToOutLayerWord = torch.cat([seq_output[:,time_step,:], Variable(init_predictions.cuda())], 1)
+            if use_gpu == 1:
+                inputToOutLayerWord = torch.cat([seq_output[:,time_step,:], Variable(init_predictions.cuda())], 1)
+            else:
+                inputToOutLayerWord = torch.cat([seq_output[:,time_step,:], Variable(init_predictions)], 1)
 
             wordPrePrediction = self.outputLayer(inputToOutLayerWord)
             wordPrediction = self.logsoftmax(wordPrePrediction)
@@ -272,7 +288,7 @@ class BiCNNLSTMTranstion(nn.Module):
             # for every batch
             for j in range(batchSize):
                 # number of non-padded words in that time-sequence
-                if mask[j][time_step].data[0] == 1.0:
+                if mask[j][time_step].item() == 1.0:
                     count = count + 1
 
             # need to calculate loss only for the non-padded words
@@ -282,9 +298,9 @@ class BiCNNLSTMTranstion(nn.Module):
 
             # for every batch
             for j in range(batchSize):
-                if mask[j][time_step].data[0] == 1.0:
+                if mask[j][time_step].item() == 1.0:
                     newWordScores[k] = wordPrediction[j].data[0]
-                    newTarget[k] = correctTarget[j][time_step].data[0]
+                    newTarget[k] = correctTarget[j][time_step].item()
                     k = k + 1
 
             loss = loss + self.nll_loss(Variable(newWordScores), Variable(newTarget) ).sum()/count
@@ -292,6 +308,6 @@ class BiCNNLSTMTranstion(nn.Module):
             value, index = torch.max(wordPrediction, 1)
 
             for j in range(batchSize):
-                predictionList[j][time_step] = index[j].data[0]
+                predictionList[j][time_step] = index[j].item()
 
         return loss, predictionList

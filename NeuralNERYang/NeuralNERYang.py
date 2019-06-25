@@ -62,11 +62,13 @@ def main():
 
     parser.add_argument('--ner_tag_field_l1', type=int, default=1, help='ner tag field')
     parser.add_argument('--ner_tag_field_l2', type=int, default=1, help='ner tag field')
-    parser.add_argument('--use_gpu', type=int, default=1, help='use gpu')
+    parser.add_argument('--use_gpu', type=int, default=0, help='use gpu')
 
     parser.add_argument('--save-dir')
 
     args = parser.parse_args()
+
+    use_gpu = args.use_gpu
 
     train_path = args.train
     train_path_aux = args.trainAux
@@ -142,8 +144,6 @@ def main():
     print("Maximum ngrams for CNN filter = " +  str(max_filter_width))
     print("Initial Learning Rate = " +  str(learning_rate))
 
-    use_gpu = torch.cuda.is_available()
-
     network = BiCNNLSTMTranstion(vocabularySize, embeddingDimension, min_filter_width, max_filter_width, len(charVocabulary), num_filters, hidden_size, len(tagVocabulary) , embedd_dict, len(tagVocabularyAux))
 
     lr = learning_rate
@@ -165,7 +165,8 @@ def main():
 
     print("Training....")
 
-    network.cuda()
+    if use_gpu == 1:
+        network.cuda()
 
     prev_error = 100000.0
 
@@ -188,25 +189,25 @@ def main():
 
         for l1,l2 in zip_longest(l1_indices, l2_indices):
             if l1 is not None:
-                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSorted[l1]], [trainLabelsRawSorted[l1]], embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width)
+                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSorted[l1]], [trainLabelsRawSorted[l1]], embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
 
                 optim.zero_grad()
-                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0)
+                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
 
                 loss.backward()
                 optim.step()
 
-                train_err += loss.data[0]
+                train_err += loss.item()
                 train_total += batch_length.data.sum()
 
                 count = count + current_batch_size
                 count_batch = count_batch + 1
 
             if l2 is not None:
-                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSortedAux[l2]], [trainLabelsRawSortedAux[l2]], embedding_vocab, vocabularySize, tagVocabularyAux, charVocabulary, max_filter_width)
+                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSortedAux[l2]], [trainLabelsRawSortedAux[l2]], embedding_vocab, vocabularySize, tagVocabularyAux, charVocabulary, max_filter_width, use_gpu)
 
                 optim.zero_grad()
-                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 1)
+                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 1, use_gpu)
 
                 loss.backward()
                 optim.step()
@@ -223,12 +224,12 @@ def main():
 
         with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
             for inputs, labels in batch(devCorpus, devLabelsRaw, 1):
-                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width)
+                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
 
-                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0)
-                current_epoch_loss = current_epoch_loss + loss.data[0]
+                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
+                current_epoch_loss = current_epoch_loss + loss.item()
 
-                loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0)
+                loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
 
                 count = 0
 
@@ -256,9 +257,9 @@ def main():
 
                 with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
                     for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
-                        x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width)
+                        x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
 
-                        loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0)
+                        loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
 
                         count = 0
 
@@ -282,9 +283,9 @@ def main():
 
             with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
                 for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
-                    x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width)
+                    x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
 
-                    loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0)
+                    loss, preds = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
 
                     count = 0
 

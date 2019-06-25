@@ -106,7 +106,7 @@ def batch(iterable1, iterable2, n=1):
     for ndx in range(0, l, n):
         yield iterable1[ndx:min(ndx + n, l)], iterable2[ndx:min(ndx + n, l)]
 
-def constructBatch(batchSentences, batchLabels, embedding_vocab, vocabularySize, tagDict, charVocabulary, max_filter_width):
+def constructBatch(batchSentences, batchLabels, embedding_vocab, vocabularySize, tagDict, charVocabulary, max_filter_width, use_gpu):
     transformedBatch = []
 
     batch_sequence_lengths = []
@@ -191,8 +191,13 @@ def constructBatch(batchSentences, batchLabels, embedding_vocab, vocabularySize,
 
 
     batch_input = []
-    batch_input.append(Variable(wordInputFeature.cuda()))
+    if use_gpu == 1:
+        batch_input.append(Variable(wordInputFeature.cuda()))
+        batch_input.append(Variable(charInputFeatures.cuda()))
 
-    batch_input.append(Variable(charInputFeatures.cuda()))
+        return batch_input, Variable(torch.LongTensor(batch_sequence_lengths)), batch_size, max_sequence_length, Variable(batch_target.cuda()), Variable(mask.cuda()), Variable(batch_target_prev.cuda())
+    else:
+        batch_input.append(Variable(wordInputFeature))
+        batch_input.append(Variable(charInputFeatures))
 
-    return batch_input, Variable(torch.LongTensor(batch_sequence_lengths)), batch_size, max_sequence_length, Variable(batch_target.cuda()), Variable(mask.cuda()), Variable(batch_target_prev.cuda())
+        return batch_input, Variable(torch.LongTensor(batch_sequence_lengths)), batch_size, max_sequence_length, Variable(batch_target), Variable(mask), Variable(batch_target_prev)
