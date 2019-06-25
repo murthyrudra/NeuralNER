@@ -257,7 +257,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
         # loss = self.nll_loss(prob_output, t_out.data).sum() / count
 
-        loss, predIndex = self._decode(seq_bilstm_out_order, target, batchSize,  maxLength, mask)
+        loss, predIndex = self._decode(seq_bilstm_out_order, target, batchSize,  maxLength, mask, use_gpu)
 
         return loss, predIndex
 

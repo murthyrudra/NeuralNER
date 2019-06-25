@@ -20,6 +20,7 @@ import uuid
 from itertools import zip_longest
 import numpy as np
 import torch
+from tqdm import tqdm
 from torch.optim import SGD
 from models.modules import BiCNNLSTMTranstion
 from utils.utilsLocal import *
@@ -187,33 +188,36 @@ def main():
         l1_indices = list(range(len(trainCorpusRawSorted)))
         l2_indices = list(range(len(trainCorpusRawSortedAux)))
 
-        for l1,l2 in zip_longest(l1_indices, l2_indices):
-            if l1 is not None:
-                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSorted[l1]], [trainLabelsRawSorted[l1]], embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
+        with tqdm(total= ( len(trainCorpusRawSorted) + len(trainCorpusRawSortedAux) ) ) as pbar:
 
-                optim.zero_grad()
-                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
+            for l1,l2 in zip_longest(l1_indices, l2_indices):
+                if l1 is not None:
+                    x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSorted[l1]], [trainLabelsRawSorted[l1]], embedding_vocab, vocabularySize, tagVocabulary, charVocabulary, max_filter_width, use_gpu)
 
-                loss.backward()
-                optim.step()
+                    optim.zero_grad()
+                    loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 0, use_gpu)
 
-                train_err += loss.item()
-                train_total += batch_length.data.sum()
+                    loss.backward()
+                    optim.step()
 
-                count = count + current_batch_size
-                count_batch = count_batch + 1
+                    train_err += loss.item()
+                    train_total += batch_length.data.sum()
 
-            if l2 is not None:
-                x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSortedAux[l2]], [trainLabelsRawSortedAux[l2]], embedding_vocab, vocabularySize, tagVocabularyAux, charVocabulary, max_filter_width, use_gpu)
+                    count = count + current_batch_size
+                    count_batch = count_batch + 1
 
-                optim.zero_grad()
-                loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 1, use_gpu)
+                if l2 is not None:
+                    x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch([trainCorpusRawSortedAux[l2]], [trainLabelsRawSortedAux[l2]], embedding_vocab, vocabularySize, tagVocabularyAux, charVocabulary, max_filter_width, use_gpu)
 
-                loss.backward()
-                optim.step()
+                    optim.zero_grad()
+                    loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, 1, use_gpu)
 
-            time_ave = (time.time() - start_time) / count
-            time_left = (num_batches - count_batch) * time_ave
+                    loss.backward()
+                    optim.step()
+
+                time_ave = (time.time() - start_time) / count
+                time_left = (num_batches - count_batch) * time_ave
+                pbar.update(2)
 
         print('train: %d loss: %.4f, time: %.2fs' % (num_batches, train_err / count, time.time() - start_time))
 
