@@ -68,8 +68,6 @@ def main():
 
     args = parser.parse_args()
 
-    logger = get_logger("NER")
-
     train_path = args.train
     train_path_aux = args.trainAux
     dev_path = args.dev
