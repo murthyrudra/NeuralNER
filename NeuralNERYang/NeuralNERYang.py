@@ -28,8 +28,8 @@ from torch.utils.data import DataLoader
 
 uid = uuid.uuid4().hex[:6]
 
-def evaluate(output_file):
-    score_file = "tmp/score_%s" % str(uid)
+def evaluate(output_file, save_dir):
+    score_file = "%s/score_%s" % (save_dir, str(uid))
     os.system("eval/conll03eval.v2 < %s > %s" % (output_file, score_file))
     with open(score_file, 'r') as fin:
         fin.readline()
@@ -67,6 +67,7 @@ def main():
 
     parser.add_argument('--save-dir')
 
+    
     args = parser.parse_args()
 
     use_gpu = args.use_gpu
@@ -245,7 +246,7 @@ def main():
 
             writer.close()
 
-        acc, precision, recall, f1 = evaluate(tmp_filename)
+        acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
         print('dev loss: %.2f, dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (current_epoch_loss, acc, precision, recall, f1))
 
         if current_epoch_loss > prev_error:
@@ -275,7 +276,7 @@ def main():
 
                     writer.close()
 
-                acc, precision, recall, f1 = evaluate(tmp_filename)
+                acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
                 print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
                 exit()
         else:
@@ -301,7 +302,7 @@ def main():
 
                 writer.close()
 
-            acc, precision, recall, f1 = evaluate(tmp_filename)
+            acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
             print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
 
             torch.save(network.state_dict(), save_dir + "/model")
