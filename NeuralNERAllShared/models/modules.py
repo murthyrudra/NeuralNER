@@ -137,7 +137,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
         count = 0
         for i in range(batchSize):
-            for j in range(length_of_sequence[i].data[0]):
+            for j in range(length_of_sequence[i].item()):
                 count = count + 1
 
         if languageId == 0:
@@ -189,7 +189,7 @@ class BiCNNLSTMTranstion(nn.Module):
 
         count = 0
         for i in range(batchSize):
-            for j in range(length_of_sequence[i].data[0]):
+            for j in range(length_of_sequence[i].item()):
                 count = count + 1
 
         # loss = self.nll_loss(prob_output, t_out.data).sum() / count
@@ -225,7 +225,7 @@ class BiCNNLSTMTranstion(nn.Module):
             # for every batch
             for j in range(batchSize):
                 # number of non-padded words in that time-sequence
-                if mask[j][time_step].data[0] == 1.0:
+                if mask[j][time_step].item() == 1.0:
                     count = count + 1
 
             # need to calculate loss only for the non-padded words
@@ -235,9 +235,9 @@ class BiCNNLSTMTranstion(nn.Module):
 
             # for every batch
             for j in range(batchSize):
-                if mask[j][time_step].data[0] == 1.0:
+                if mask[j][time_step].item() == 1.0:
                     newWordScores[k] = wordPrediction[j].data[0]
-                    newTarget[k] = correctTarget[j][time_step].data[0]
+                    newTarget[k] = correctTarget[j][time_step].item()
                     k = k + 1
 
             loss = loss + self.nll_loss(Variable(newWordScores), Variable(newTarget) ).sum()/count
@@ -245,7 +245,7 @@ class BiCNNLSTMTranstion(nn.Module):
             value, index = torch.max(wordPrediction, 1)
 
             for j in range(batchSize):
-                predictionList[j][time_step] = index[j].data[0]
+                predictionList[j][time_step] = index[j].item()
 
         return loss, predictionList
 
@@ -342,7 +342,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
 
             count = 0
             for i in range(batchSize):
-                for j in range(length_of_sequence[i].data[0]):
+                for j in range(length_of_sequence[i].item()):
                     count = count + 1
 
             return self.nll_loss(prob_output, t_out.data).sum() / count, predIndex.data
@@ -358,7 +358,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
 
             count = 0
             for i in range(batchSize):
-                for j in range(length_of_sequence[i].data[0]):
+                for j in range(length_of_sequence[i].item()):
                     count = count + 1
 
             return self.nll_loss(prob_output, t_out.data).sum() / count * self.language_weight, predIndex.data
@@ -407,7 +407,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
 
         count = 0
         for i in range(batchSize):
-            for j in range(length_of_sequence[i].data[0]):
+            for j in range(length_of_sequence[i].item()):
                 count = count + 1
 
         # loss = self.nll_loss(prob_output, t_out.data).sum() / count
@@ -444,7 +444,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
                 # for every batch
                 for j in range(batchSize):
                     # number of non-padded words in that time-sequence
-                    if mask[j][time_step].data[0] == 1.0:
+                    if mask[j][time_step].item() == 1.0:
                         count = count + 1
 
                 # need to calculate loss only for the non-padded words
@@ -454,9 +454,9 @@ class BiCNNLSTMTranstionOutput(nn.Module):
 
                 # for every batch
                 for j in range(batchSize):
-                    if mask[j][time_step].data[0] == 1.0:
+                    if mask[j][time_step].item() == 1.0:
                         newWordScores[k] = wordPrediction[j].data[0]
-                        newTarget[k] = correctTarget[j][time_step].data[0]
+                        newTarget[k] = correctTarget[j][time_step].item()
                         k = k + 1
 
                 loss = loss + self.nll_loss(Variable(newWordScores), Variable(newTarget) ).sum()/count
@@ -464,7 +464,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
                 value, index = torch.max(wordPrediction, 1)
 
                 for j in range(batchSize):
-                    predictionList[j][time_step] = index[j].data[0]
+                    predictionList[j][time_step] = index[j].item()
 
             return loss, predictionList
         else:
@@ -494,7 +494,7 @@ class BiCNNLSTMTranstionOutput(nn.Module):
                 # for every batch
                 for j in range(batchSize):
                     # number of non-padded words in that time-sequence
-                    if mask[j][time_step].data[0] == 1.0:
+                    if mask[j][time_step].item() == 1.0:
                         count = count + 1
 
                 # need to calculate loss only for the non-padded words
@@ -504,9 +504,9 @@ class BiCNNLSTMTranstionOutput(nn.Module):
 
                 # for every batch
                 for j in range(batchSize):
-                    if mask[j][time_step].data[0] == 1.0:
+                    if mask[j][time_step].item() == 1.0:
                         newWordScores[k] = wordPrediction[j].data[0]
-                        newTarget[k] = correctTarget[j][time_step].data[0]
+                        newTarget[k] = correctTarget[j][time_step].item()
                         k = k + 1
 
                 loss = loss + self.nll_loss(Variable(newWordScores), Variable(newTarget) ).sum()/count
@@ -514,6 +514,6 @@ class BiCNNLSTMTranstionOutput(nn.Module):
                 value, index = torch.max(wordPrediction, 1)
 
                 for j in range(batchSize):
-                    predictionList[j][time_step] = index[j].data[0]
+                    predictionList[j][time_step] = index[j].item()
 
             return loss, predictionList
