@@ -28,7 +28,7 @@ from torch.utils.data import DataLoader
 
 def evaluate(output_file, save_dir):
 	score_file = "%s/score_" % (save_dir)
-	os.system("eval/conll03eval.v2 < %s > %s" % (output_file, score_file))
+	os.system("perl eval/conll03eval.v2 < %s > %s" % (output_file, score_file))
 	with open(score_file, 'r') as fin:
 		fin.readline()
 		line = fin.readline()
