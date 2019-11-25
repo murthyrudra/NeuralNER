@@ -9,7 +9,7 @@ Please use a batch-size of 1. I found a bug with the code during test time when 
 
 ## To-Do
 
-- [ ] NeuralNERMono code is polished. Update NeuralNERYang and NeuralNERAllShared with similar code standards
+- [x] NeuralNERMono code is polished. Update NeuralNERYang and NeuralNERAllShared with similar code standards
 - [ ] The system gives erroneous output when batch size is greater than 1.
 
 ## Note:
