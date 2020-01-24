@@ -14,20 +14,44 @@ import re
 
 
 def load_embeddings(file_name):
+	""" Load pre-trained word embeddings 
+
+	Parameters
+	----------
+	filename : str 
+		the path to the pre-trained word embedding file in Glove format
+
+	Returns
+	-------
+	wordEmbedding : numpy nd-array
+		Numpy array of embeddings
+	dictionary : dict
+		Dictionary of word to index mappings
+	reverseDict : dict
+		Index to word mappings
+	num_words : int
+		Number of words in our word emedding matrix
+	dimension : float
+		Dimension of the word embeddings
+	"""
+	
 	dictionary = dict()
 	reverseDict = []
-# dummy word for zero-padding
+	
+	# dummy word for zero-padding
 	dictionary["</SSSSSSSSSSSS>"] = len(dictionary)
 	reverseDict.append("</SSSSSSSSSSSSS>")
 
 	wv = []
 	dimension = 0
 	with codecs.open(file_name, 'r', 'utf-8',errors='ignore') as f_in:
+		# read the file line by line
 		for line in f_in:
 			line = line.strip()
-			# print(line)
+			# if line is not empty
 			if line:
 				vocabulary = line.split(' ')[0]
+				# if we haven't already seen this word add it to dictionary and get the vectors
 				if vocabulary.lower() not in dictionary:
 					temp = []
 					dictionary[vocabulary.lower()] = len(dictionary)
@@ -45,8 +69,10 @@ def load_embeddings(file_name):
 
 					wv.append(temp)
 
+	# convert embedding list to numpy array
 	wv_np = np.array(wv)
 
+	# add unknown word to dictionary
 	dictionary["<unk>"] = len(dictionary)
 	reverseDict.append("<unk>")
 
@@ -56,33 +82,35 @@ def load_embeddings(file_name):
 
 	return wordEmbedding, dictionary, reverseDict, wordEmbedding.shape[0], dimension
 
-def load_embeddings_new(file_name, dictionary, reverseDict, embeddings):
-	with codecs.open(file_name, 'r', 'utf-8',errors='ignore') as f_in:
-		pattern = re.compile(r'\s+')
-		vocabulary, wv = zip(*[line.strip().split(' ', 1) for line in f_in])
-		# wvList = np.loadtxt(wv)
+def readCoNLL(filename, charDictionary, tagDictionary, ner_tag_field, embed_dict):
+	""" Read the Named-entity tagged file in CoNLL format
 
-		temp = []
-		for i in range(len(wv)):
-			if vocabulary[i].lower() not in dictionary:
-				dictionary[vocabulary[i].lower()] = len(dictionary)
-				reverseDict.append(vocabulary[i].lower())
+	Parameters
+	----------
+	filename : str 
+		the path to the named entity tagged file in CoNLL format
 
-				temp.append(wv[i])
+	charDictionary: Vocab
+		Vocab object to build character dictionary
 
-		wvList = np.loadtxt(temp)
-		wordEmbedding = np.vstack( [embeddings, wvList])
-		embeddings = wordEmbedding
+	tagDictionary: Vocab
+		Vocab object to build named entity labels dictionary
 
-	with codecs.open("tmp.vocab", 'w', encoding='utf-8', errors='ignore') as fp:
-		for everyWord in dictionary:
-			fp.write(everyWord)
-			fp.write("\n")
-	fp.close()
+	ner_tag_field: int
+		The index or the column number containing the named entity labels
 
-	return
+	embed_dict: Vocab
+		Vocab object containing the list of words for which we have pre-trained embeddings
 
-def readCoNLL(filename, charDictionary, tagDictionary, ner_tag_field, embedd_dict):
+	Returns
+	-------
+	documents : n-dimensiona list
+		List of Sentences
+	labels : n-dimensional list
+		List of tag sequences correpsonding to every sentence in the documents
+	maxSequenceLength : int
+		Maximum number of words in a sentence
+	"""
 	documents = []
 	labels = []
 
@@ -99,7 +127,6 @@ def readCoNLL(filename, charDictionary, tagDictionary, ner_tag_field, embedd_dic
 		for line in fp:
 			line = line.strip()
 			if line:
-				# line = line.lower()
 				if not line.startswith("#"):
 					tokens = []
 					tokens.append(line.split("\t")[wordIndex])
@@ -139,7 +166,7 @@ def readCoNLL(filename, charDictionary, tagDictionary, ner_tag_field, embedd_dic
 							target.append(sentences[i][1])
 
 							totalWords = totalWords + 1
-							if sentences[i][0] not in embedd_dict:
+							if sentences[i][0] not in embed_dict:
 								unknownWords = unknownWords + 1
 					if len(sentence) > 0:
 						documents.append(sentence)
@@ -155,6 +182,22 @@ def readCoNLL(filename, charDictionary, tagDictionary, ner_tag_field, embedd_dic
 	return documents, labels, maxSequenceLength
 
 def readUnlabeledData(filename):
+	""" Read the plain corpus containing every sentence in it's own line
+
+	Parameters
+	----------
+	filename : str 
+		the path to the named entity tagged file in CoNLL format
+
+	Returns
+	-------
+	documents : n-dimensiona list
+		List of Sentences
+	maxSequenceLength : int
+		Maximum number of words in a sentence
+
+	"""
+
 	documents = []
 
 	sentences = []
@@ -176,48 +219,74 @@ def readUnlabeledData(filename):
 
 	return documents, maxSequenceLength
 
-def saveVocabulary(filename, vocabulary, reverseVocabulary):
-	with codecs.open(filename + ".vocab", 'w', encoding='utf-8', errors='ignore') as fp:
-		for everyWord in reverseVocabulary:
-			fp.write(everyWord)
-			fp.write("\n")
-	fp.close()
-
-def loadVocabulary(filename, vocabulary, reverseVocabulary):
-	print("loading vocabulary from " + filename)
-	with codecs.open(filename, 'r', encoding='utf-8', errors='ignore') as fp:
-		for line in fp:
-			line = line.rstrip()
-
-			word  = line
-			vocabulary[word] = len(vocabulary)
-			reverseVocabulary.append(word)
-
-	fp.close()
-
-def sortTrainData(trainData, trainTag):
-
-	sentenceLengths = []
-	for everySentence in trainData:
-		sentenceLengths.append(len(everySentence))
-
-	sentenceLengths = torch.Tensor(sentenceLengths)
-
-	sorted_length, sorted_index = torch.sort(sentenceLengths, dim=0, descending=True)
-
-	new_sentence_order = sorted_index.tolist()
-
-	newTrainData = [trainData[i] for i in new_sentence_order]
-	newTrainTag = [trainTag[i] for i in new_sentence_order]
-
-	return newTrainData, newTrainTag
-
 def batch(iterable1, iterable2, n=1):
+	""" Generate batches of size n given two iterable lists
+
+	Parameters
+	----------
+	iterable1 :  
+		Iterator to the first list
+
+	iterable2 :  
+		Iterator to the second list
+
+	Yields
+	-------
+	batch_1:
+		Mini-batch of examples from first list
+	batch_2:
+		Mini-batch of examples from second list
+
+	"""
+
 	l = len(iterable1)
 	for ndx in range(0, l, n):
 		yield iterable1[ndx:min(ndx + n, l)], iterable2[ndx:min(ndx + n, l)]
 
 def constructBatch(batchSentences, batchLabels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, use_gpu):
+	"""" Given batch of sentences and corresponding label sequences, convert them to Pytorch Tensor
+
+	Parameters
+	----------
+	batchSentences :  
+		List of sentences
+
+	batchLabels :  
+		List of corresponding label sequences for every sentence
+
+	inputVocabulary : Vocab
+		Vocab object containing word to integer mapping
+
+	targetVocabulary : Vocab
+		Vocab object containing named entity label to integer mapping
+
+	charVocabulary : Vocab
+		Vocab object containing character to integer mapping
+
+	max_filter_width : int
+		Maximum character n-gram width we are looking at. Required to create character tensor
+
+	use_gpu : int
+		If we are running on GPU convert Tensors to Cuda Tensors
+
+	Returns
+	-------
+	batch_input
+		Batch of Sentences and corresponding character sequences converted to Pytorch Tensor
+	batch_sequence_lengths
+		List containing number of words in every sentence in the mini-batch
+	batch_size
+		Batch size
+	max_sequence_length
+		Maximum Sentence length in the batch
+	batch_target
+		The corresponding Label sequence
+	mask
+		Tensor specifying what entries to be ignored in the input sequence
+	batch_target_prev
+		Tensor containing one-hot encoding of correct previous word label
+	"""
+
 	batch_sequence_lengths = []
 	max_sequence_length = 0
 	batch_size = len(batchSentences)
@@ -314,6 +383,37 @@ def constructBatch(batchSentences, batchLabels, inputVocabulary, targetVocabular
 
 
 def constructBatchOnline(batchSentences, inputVocabulary, charVocabulary, max_filter_width, use_gpu):
+	"""" Given batch of sentences, convert them to Pytorch Tensor
+
+	Parameters
+	----------
+	batchSentences :  
+		List of sentences
+
+	inputVocabulary : Vocab
+		Vocab object containing word to integer mapping
+
+	charVocabulary : Vocab
+		Vocab object containing character to integer mapping
+
+	max_filter_width : int
+		Maximum character n-gram width we are looking at. Required to create character tensor
+
+	use_gpu : int
+		If we are running on GPU convert Tensors to Cuda Tensors
+
+	Returns
+	-------
+	batch_input
+		Batch of Sentences and corresponding character sequences converted to Pytorch Tensor
+	batch_sequence_lengths
+		List containing number of words in every sentence in the mini-batch
+	batch_size
+		Batch size
+	max_sequence_length
+		Maximum Sentence length in the batch
+	
+	"""
 
 	batch_sequence_lengths = []
 	batch_actual_sum = 0

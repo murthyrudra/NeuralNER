@@ -28,6 +28,26 @@ from torch.nn.parameter import Parameter
 
 
 def evaluate(output_file, save_dir):
+	""" Evaluate the output produced and report F-Score values
+
+	Parameters
+	----------
+	output_file : str 
+		the path to the output file containing the predictions
+	save_dir : str
+		the path to the directory where we store temporary files
+
+	Returns
+	-------
+	acc : float
+		Accuracy Value
+	precision : float
+		Precision Value
+	recall : float
+		Recall Value
+	f1 : float
+		F1 Value
+	"""
 	score_file = "%s/score_" % (save_dir)
 	os.system("perl eval/conll03eval.v2 < %s > %s" % (output_file, score_file))
 	with open(score_file, 'r') as fin:
@@ -42,6 +62,7 @@ def evaluate(output_file, save_dir):
 
 
 def main():
+
 	parser = argparse.ArgumentParser(description='Training a Sequence Labeler with bi-directional LSTM-CNN')
 	parser.add_argument('--num_epochs', type=int, default=100, help='Number of training epochs')
 	parser.add_argument('--batch_size', type=int, default=5, help='Number of sentences in each batch')
@@ -96,6 +117,7 @@ def main():
 
 	save_dir = args.save_dir
 
+	# create the output folder if does not exist
 	if not os.path.exists(save_dir):
 		os.makedirs(save_dir)
 
@@ -105,12 +127,14 @@ def main():
 	charVocabulary = CharVocab()
 	targetVocabulary = Vocab()
 
+	# Read Character vocabulary if vocabChar argument is given
 	if args.vocabChar:
 		with open(args.vocabChar, "r") as f:
 			charVocabulary.__dict__ = json.load(f)
 		charVocabulary.set_freeze()
 		charVocabulary.process()
 
+	# Read Output vocabulary if vocabChar argument is given
 	if args.vocabOutput:
 		with open(args.vocabOutput, "r") as f:
 			targetVocabulary.__dict__ = json.load(f)
@@ -119,16 +143,21 @@ def main():
 
 	embedding_vocab = None
 
+	# If the path to pre-trained embeddings are given
 	if args.embedding_vectors:
 		print(args.embedding_vectors)
+
+		# load the pre-trained embeddings
 		embedd_dict, embedding_vocab, reverse_word_vocab, vocabularySize, embeddingDimension = load_embeddings(embedding_path)
 		print("Read Word Embedding of dimension " + str(embeddingDimension) + " for " + str(vocabularySize) + " number of words")
 
+		# add the words to the Input vocabulary which is a dictionary of words
 		for everyWord in embedding_vocab:
 			inputVocabulary.add(everyWord)
 		inputVocabulary.set_freeze()
 		inputVocabulary.process()
 	else:
+		# Read Input vocabulary if vocabChar argument is given
 		if args.vocabInput:
 			with open(args.vocabInput, "r") as f:
 				inputVocabulary.__dict__ = json.load(f)
@@ -138,34 +167,41 @@ def main():
 			print("Neither pre-trained word embeddings nor input vocabulary is specified")
 			exit()
 
+	# if character vocabulary is initialize with beginning and end markers
 	if charVocabulary.__is_empty__():
 		charVocabulary.add("<S>")
 		charVocabulary.add("</S>")
 
 	if evaluation:
+		# if we are performing evaluation, we do not require train and dev splits
 		if not args.deploy:
+			# if we are not deploying the model, then we are interesting in testing the model
 			testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, targetVocabulary, args.ner_tag_field, inputVocabulary)
 			print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 			print("Read " + str(len(charVocabulary)) + " number of characters")
 
 		else:
+			# if we are deploying the model, we are trying to get predictions on a plain corpus
 			testCorpus, maxTestLength = readUnlabeledData(test_path)
 			print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 	else:
+		# read train split
 		trainCorpus, trainLabelsRaw, maxTrainLength = readCoNLL(train_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Train Corpus contains " + str(len(trainCorpus)) + " sentences and maximum sentence length is " + str(maxTrainLength))
 
 		trainCorpusRawSorted = trainCorpus
 		trainLabelsRawSorted = trainLabelsRaw
-		print("Sorted the train Corpus based on length ")
-
+		
+		# read dev split
 		devCorpus, devLabelsRaw, maxDevLength = readCoNLL(dev_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Dev Corpus contains " + str(len(devCorpus)) + " sentences and maximum sentence length is " + str(maxDevLength))
 
+		# read test split
 		testCorpus, testLabelsRaw, maxTestLength = readCoNLL(test_path, charVocabulary, targetVocabulary, args.ner_tag_field, embedding_vocab)
 		print("Test Corpus contains " + str(len(testCorpus)) + " sentences and maximum sentence length is " + str(maxTestLength))
 
 	if not targetVocabulary.get_freeze():
+		# save the output vocabulary
 		print(targetVocabulary._tok_to_ind)
 
 		tmp_filename = '%s/output.vocab' % (save_dir)
@@ -174,18 +210,23 @@ def main():
 		targetVocabulary.set_freeze()
 
 	if not charVocabulary.get_freeze():
+		# save the character vocabulary
 		tmp_filename = '%s/char.vocab' % (save_dir)
 		with open(tmp_filename, "w") as f:
 			json.dump(charVocabulary.__dict__, f)
 		charVocabulary.set_freeze()
 
+	# initialize word embeddings randomly
 	embeddingDimension = args.embedDimension
 	word_embedding = np.random.uniform(-0.1, 0.1, (inputVocabulary.__len__(), embeddingDimension) )
+
 	if args.embedding_vectors:
+		# pre-trained word embeddings are given, update the word_embedding variable with pre-trained embeddings
 		for everyWord in inputVocabulary._tok_to_ind:
 			if everyWord in embedding_vocab:
 				word_embedding[ inputVocabulary.__get_word__(everyWord) ] = embedd_dict[embedding_vocab[everyWord]]
 
+		# save the input vocabulary
 		tmp_filename = '%s/input.vocab' % (save_dir)
 		with open(tmp_filename, "w") as f:
 			json.dump(inputVocabulary.__dict__, f)
@@ -210,9 +251,9 @@ def main():
 
 	use_gpu = args.use_gpu
 
+	# create a Bi-LSTM network
 	network = BiCNNLSTMTranstion(inputVocabulary.__len__(), embeddingDimension, min_filter_width, max_filter_width, charVocabulary.__len__(), num_filters, hidden_size, targetVocabulary.__len__() , word_embedding, args.fineTune)
-
-	# print(network)
+	print(network)
 
 	lr = learning_rate
 
@@ -232,8 +273,10 @@ def main():
 	best_epoch = 0
 
 	if evaluation:
+		# if we are performing evaluation, load the trained model
 		network.load_state_dict(torch.load(save_dir + "/model"))
 
+		# save output vocabulary as a plain file
 		tmp_filename = '%s/output.vocab.plain' % (save_dir)
 		with open(tmp_filename, "w") as f:
 			for index in range(len(targetVocabulary._ind_to_tok)):
@@ -241,6 +284,7 @@ def main():
 				f.write("\n")
 			f.close()
 
+		# save input vocabulary as a plain file
 		tmp_filename = '%s/input.vocab.plain' % (save_dir)
 		with open(tmp_filename, "w") as f:
 			for index in range(len(inputVocabulary._ind_to_tok)):
@@ -248,6 +292,7 @@ def main():
 				f.write("\n")
 			f.close()
 
+		# save character vocabulary as a plain file
 		tmp_filename = '%s/char.vocab.plain' % (save_dir)
 		with open(tmp_filename, "w") as f:
 			for index in range(len(charVocabulary._ind_to_tok)):
@@ -268,12 +313,15 @@ def main():
 
 		with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 			for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
+				# for every sentence in the test data, convert the input to tensor
 				x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
+				# get predictions by calling the forward() function of the model
 				loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 				count = 0
 
+				# get the labels and write the output to the file
 				for i in range(len(inputs)):
 					for j in range(len(inputs[i])):
 						writer.write(inputs[i][j] )
@@ -286,6 +334,7 @@ def main():
 
 			writer.close()
 
+		# Calulate the F-Score on the predicted output
 		acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
 		print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
 	else:
@@ -295,7 +344,6 @@ def main():
 
 		if args.train_from:
 			print("Loading pre-trained model from " + args.train_from)
-
 			network.load_state_dict(torch.load(args.train_from))
 
 		print("Training....")
@@ -307,16 +355,19 @@ def main():
 
 		with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 			for inputs, labels in batch(devCorpus, devLabelsRaw, 1):
+				# for every sentence in the test data, convert the input to tensor
 				x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
+				# get the loss by calling the forward() function of the model
 				loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
-
 				current_epoch_loss = current_epoch_loss + loss.item()
 
+				# get the predictions by calling the forward() function of the model
 				loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 				count = 0
 
+				# get the labels and write the output to the file
 				for i in range(len(inputs)):
 					for j in range(len(inputs[i])):
 						writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
@@ -325,6 +376,7 @@ def main():
 
 			writer.close()
 
+		# Calulate the F-Score on the predicted output
 		acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
 		print('dev loss: %.2f, dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (current_epoch_loss, acc, precision, recall, f1))
 
@@ -344,13 +396,15 @@ def main():
 
 			with tqdm(total= ( len(trainCorpusRawSorted)) ) as pbar:
 				for inputs, labels in batch(trainCorpusRawSorted, trainLabelsRawSorted, batch_size):
-
+					# for every sentence in the test data, convert the input to tensor
 					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
 					optim.zero_grad()
 
+					# get the loss by calling the forward() function of the model
 					loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
+					# calculate gradients by calling backward() function and call optim.step() to perform gradient updation
 					loss.backward()
 					optim.step()
 
@@ -372,15 +426,19 @@ def main():
 
 			with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 				for inputs, labels in batch(devCorpus, devLabelsRaw, 1):
+					# for every sentence in the test data, convert the input to tensor
 					x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
+					# get the loss by calling the forward() function of the model
 					loss, _ = network.loss(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 					current_epoch_loss = current_epoch_loss + loss.item()
 
+					# get the predictions by calling the forward() function of the model
 					loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 					count = 0
 
+					# get the labels and write the output to the file
 					for i in range(len(inputs)):
 						for j in range(len(inputs[i])):
 							writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
@@ -389,11 +447,13 @@ def main():
 
 				writer.close()
 
+			# Calulate the F-Score on the predicted output
 			acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
 			print('dev loss: %.2f, dev acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (current_epoch_loss, acc, precision, recall, f1))
 
 			if epoch > 1:
 				if current_epoch_loss > prev_error:
+					# if the validation loss has increased, load the previous epoch model and reduce the learning rate
 					lr = lr * 0.7
 					optim = SGD(network.parameters(), lr=lr, momentum=momentum, weight_decay=gamma, nesterov=True)
 
@@ -401,17 +461,21 @@ def main():
 					network.eval()
 
 					if lr < 0.002:
+						# if the learning rate is less than 0.002, stop the training
 						network.eval()
 						tmp_filename = '%s/_test%d' % (save_dir, epoch)
 
 						with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 							for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
+								# for every sentence in the test data, convert the input to tensor
 								x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
+								# get the predictions by calling the forward() function of the model
 								loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 								count = 0
 
+								# get the labels and write the output to the file
 								for i in range(len(inputs)):
 									for j in range(len(inputs[i])):
 										writer.write(inputs[i][j] )
@@ -424,6 +488,7 @@ def main():
 
 							writer.close()
 
+						# Calulate the F-Score on the predicted output
 						acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
 						print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
 
@@ -437,12 +502,15 @@ def main():
 
 					with codecs.open(tmp_filename, "w", encoding="utf8", errors="ignore") as writer:
 						for inputs, labels in batch(testCorpus, testLabelsRaw, 1):
+							# for every sentence in the test data, convert the input to tensor
 							x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev = constructBatch(inputs, labels, inputVocabulary, targetVocabulary, charVocabulary, max_filter_width, args.use_gpu)
 
+							# get the predictions by calling the forward() function of the model
 							loss, preds, probs = network.forward(x_input, batch_length, current_batch_size, current_max_sequence_length, y_output, mask, y_prev, args.use_gpu)
 
 							count = 0
 
+							# get the labels and write the output to the file
 							for i in range(len(inputs)):
 								for j in range(len(inputs[i])):
 									writer.write(inputs[i][j] + " " + labels[i][j] + " " + targetVocabulary.__get_index__( preds[i][j].item() ).upper())
@@ -451,6 +519,7 @@ def main():
 
 						writer.close()
 
+					# Calulate the F-Score on the predicted output
 					acc, precision, recall, f1 = evaluate(tmp_filename, save_dir)
 					print('test acc: %.2f%%, precision: %.2f%%, recall: %.2f%%, F1: %.2f%%' % (acc, precision, recall, f1))
 			else:
