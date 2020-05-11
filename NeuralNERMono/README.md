@@ -28,7 +28,9 @@ python NeuralNER.py --embedding_dict="path to word embedding file" --test="path 
 ```
 
 ## Data
-Due to licensing issue we are unable to share the data for English and Indian languages (except Marathi). For Marathi, please fill the form here http://www.cfilt.iitb.ac.in/ner/download_data.html
+Due to licensing issue we are unable to share the data for English and Indian languages (except Marathi). For Marathi, please fill the form here http://www.cfilt.iitb.ac.in/ner2/download_data.html
+
+### PPS: You need to submit the scanned undertaking form after filling the online form. The scanned form is crucial for getting access to the data.
 
 However, Spanish and Dutch data are freely available here https://www.clips.uantwerpen.be/conll2002/ner/. German NEr data is taken from https://nlpado.de/~sebastian/software/ner_german.shtml. Also, we make a copy of Spanish, Dutch and German languages data available in the Data folder.
 
